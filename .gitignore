@@ -6,6 +6,7 @@ cache/smarty/compile/*
 !cache/smarty/compile/index.php
 cache/tcpdf/*
 !cache/tcpdf/index.php
+.idea
 
 config/xml/*.xml
 config/settings.inc.php
