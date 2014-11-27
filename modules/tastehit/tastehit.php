@@ -1,29 +1,4 @@
 <?php
-/**
-* 2007-2014 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2014 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
-
 if (!defined('_PS_VERSION_'))
 	exit;
 
@@ -36,297 +11,275 @@ class Tastehit extends Module
 		$this->name = 'tastehit';
 		$this->tab = 'front_office_features';
 		$this->version = '1.0.0';
-		$this->author = 'RCS';
-		$this->need_instance = 1;
-		/**
-		 * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
-		 */
+		$this->author = 'RedCubeSystems';
+		$this->need_instance = 0;
+		$this->ps_versions_compliancy = array('min' => '1.4', 'max' => _PS_VERSION_);
 		$this->bootstrap = true;
+
 		parent::__construct();
+
 		$this->displayName = $this->l('TasteHit products');
 		$this->description = $this->l('TasteHit products module');
+
+		$this->confirmUninstall = $this->l('Are you sure you want to uninstall?');
+
+		if (!Configuration::get('TH_MODULE_NAME'))
+			$this->warning = $this->l('No name provided');
 	}
 
-
-	/**
-	 * Don't forget to create update methods if needed:
-	 *
-	 */
 	public function install()
 	{
-		include(dirname(__FILE__).'/sql/install.php');
-        
-        /* create new tab on backoffice Customers - Quotes */
-        $tab = new Tab();
-		foreach (Language::getLanguages() as $language)
-			$tab->name[$language['id_lang']] = 'Quotes';
-            
-		$tab->id_parent = 10;
-		$tab->class_name = 'AdminQuotes'; // Current admin quotes controller
-		$tab->module = $this->name; // module name and folder
-		$tab->position = Tab::getNewLastPosition($tab->id_parent);
+		if (Shop::isFeatureActive())
+			Shop::setContext(Shop::CONTEXT_ALL);
 
-		/* parent tab id */
-		$r = $tab->save(); // saving your tab
-		Configuration::updateValue('MODULE_TAB_ID', $tab->id); // saving tab ID to remove it when uninstall
-        Configuration::updateValue('MAIN_STATE', '1'); // Main module status
-        Configuration::updateValue('MAIN_QUANTITY_FIELDS', '0'); // Quantity fields trigger
-        Configuration::updateValue('MAIN_ANIMATE', '1'); // Quantity fields trigger
-        //Configuration::updateValue('MAIN_GUEST_CHECK_OUT', '1'); // Quantity fields trigger
-        Configuration::updateValue('MAIN_TERMS_AND_COND', '0'); // Quantity fields trigger
-        Configuration::updateValue('MAIN_CMS_PAGE', '0'); // Quantity fields trigger
-		Configuration::updateValue('PS_GUEST_QUOTES_ENABLED', '0');
-		Configuration::updateValue('ADDRESS_ENABLED', '0');
-		Configuration::updateValue('MESSAGING_ENABLED', '1');
+		if (!parent::install() ||
+			!$this->registerHook('leftColumn') ||
+			!$this->registerHook('rightColumn') ||
+			!$this->registerHook('displayFooterProduct') ||
+			!$this->registerHook('header') ||
+			!$this->registerHook('displayBackOfficeHeader') ||
+			!Configuration::updateValue('TH_MODULE_NAME', 'tastehit') ||
+			!Configuration::updateValue('TH_COSTUMER_ID', 'customer id') ||
+			!Configuration::updateValue('TH_URL', 'https://www.tastehit.com') ||
+			!Configuration::updateValue('TH_EXPORTS_PATH', '0') ||
+			!Configuration::updateValue('TH_EXPORTS_FREQUENCY', '0') ||
+			!Configuration::updateValue('TH_DISPLAY_PRODUCT', '1') ||
+			!Configuration::updateValue('TH_DISPLAY_CATEGORY', '1') ||
+			!Configuration::updateValue('TH_PRODUCT_POSITION', '1') ||
+			!Configuration::updateValue('TH_CATEGORY_POSITION', '1')
+		)
+			return false;
 
-
-        return parent::install() &&
-        $this->registerHook('header') &&
-        $this->registerHook('extraRight') &&
-        $this->registerHook('extraLeft') &&
-        $this->registerHook('myAccountBlock') &&
-        $this->registerHook('CustomerAccount') &&
-        $this->registerHook('top') &&
-        $this->registerHook('Header') &&
-		$this->registerHook('displayProductButtons') &&
-		$this->registerHook('displayProductListFunctionalButtons') &&
-        $this->registerHook('displayMyAccountBlockfooter') &&
-        $this->registerHook('displayBackOfficeHeader');
-
+		return true;
 	}
 
 	public function uninstall()
 	{
-		$this->deleteTables();
-        
-        $tab = new Tab(Configuration::get('MODULE_TAB_ID'));
-		$tab->delete();
-        
-		return parent::uninstall() AND Configuration::deleteByName('MAIN_STATE') 
-                                   AND Configuration::deleteByName('MODULE_TAB_ID')
-                                   AND Configuration::deleteByName('MAIN_QUANTITY_FIELDS')
-                                   AND Configuration::deleteByName('MAIN_ANIMATE')
-                                   //AND Configuration::deleteByName('MAIN_GUEST_CHECK_OUT')
-                                   AND Configuration::deleteByName('MAIN_TERMS_AND_COND')
-                                   AND Configuration::deleteByName('MAIN_CMS_PAGE')
-									AND Configuration::deleteByName('PS_GUEST_QUOTES_ENABLED')
-									AND Configuration::deleteByName('ADDRESS_ENABLED')
-									AND Configuration::deleteByName('MESSAGING_ENABLED');
+		if (!parent::uninstall() ||
+			!Configuration::deleteByName('TH_MODULE_NAME') ||
+			!Configuration::deleteByName('TH_COSTUMER_ID') ||
+			!Configuration::deleteByName('TH_URL') ||
+			!Configuration::deleteByName('TH_EXPORTS_PATH') ||
+			!Configuration::deleteByName('TH_EXPORTS_FREQUENCY') ||
+			!Configuration::deleteByName('TH_DISPLAY_PRODUCT') ||
+			!Configuration::deleteByName('TH_DISPLAY_CATEGORY') ||
+			!Configuration::deleteByName('TH_PRODUCT_POSITION') ||
+			!Configuration::deleteByName('TH_CATEGORY_POSITION')
+		)
+			return false;
+
+		return true;
 	}
 
-
-	/**
-	 * Load the configuration form
-	 */
 	public function getContent()
 	{
-		/**
-		 * If values have been submitted in the form, process.
-		 */
-        if(Tools::getValue('submitMainSettings')) {
-            Configuration::updateValue('MAIN_STATE', Tools::getValue('MAIN_STATE'));
-            Configuration::updateValue('MAIN_QUANTITY_FIELDS', Tools::getValue('MAIN_QUANTITY_FIELDS'));
-            Configuration::updateValue('MAIN_ANIMATE', Tools::getValue('MAIN_ANIMATE'));
-           // Configuration::updateValue('MAIN_GUEST_CHECK_OUT', Tools::getValue('MAIN_GUEST_CHECK_OUT'));
-            Configuration::updateValue('MAIN_TERMS_AND_COND', Tools::getValue('MAIN_TERMS_AND_COND'));
-            Configuration::updateValue('MAIN_CMS_PAGE', Tools::getValue('MAIN_CMS_PAGE'));
-			Configuration::updateValue('PS_GUEST_QUOTES_ENABLED', Tools::getValue('PS_GUEST_QUOTES_ENABLED'));
-			Configuration::updateValue('ADDRESS_ENABLED', Tools::getValue('ADDRESS_ENABLED'));
-			Configuration::updateValue('MESSAGING_ENABLED', Tools::getValue('MESSAGING_ENABLED'));
-            $output .= $this->displayConfirmation($this->l('Settings updated'));
-        }
-		$this->context->smarty->assign('module_dir', $this->_path);
-		return $output.$this->renderForm();
+		$output = '<div id="th_wrapper" class="th_wrapper">';
+		$output .= '<div class="module_logo"><img src="'.$this->_path.'img/module-logo.png" alt="'.$this->l('Tastehit').'"/></div>';
+
+		if (Tools::isSubmit('submit'.$this->name))
+		{
+			$my_module_name = strval(Tools::getValue('TH_MODULE_NAME'));
+			if (!$my_module_name
+				|| empty($my_module_name)
+				|| !Validate::isGenericName($my_module_name))
+				$output .= $this->displayError($this->l('Invalid Configuration value'));
+			else
+			{
+				Configuration::updateValue('TH_MODULE_NAME', $my_module_name);
+				$output .= $this->displayConfirmation($this->l('Settings updated'));
+			}
+		}
+
+		$output .= $this->currentStatus();
+		$output .= $this->displayForm();
+		$output .= '</div>';
+
+		return $output;
+	}
+
+	/**
+	 * Create the current status of your module.
+	 */
+	public function currentStatus()
+	{
+		$status = 'offline';
+		$status = 'online';
+
+		$output = '<div class="panel current_status">';
+			$output .= '<div class="panel-heading">'.$this->l('Current status').'</div>';
+
+			$output .= '<div class="form-group">';
+				$output .= '<div class="col-lg-3">'.$this->l('State of service').'</div>';
+				$output .= '<div class="col-lg-9"><span class="status '.$status.'">'.$status.'</span></div>';
+			$output .= '</div>';
+
+			$output .= '<div class="form-group">';
+				$output .= '<div class="col-lg-3">'.$this->l('Recommendations').'</div>';
+				$output .= '<div class="col-lg-9"><span class="status color-orange">'.$this->l('Not displaying').'</span></div>';
+			$output .= '</div>';
+
+			$output .= '<div class="form-group">';
+				$output .= '<div class="col-lg-3">'.$this->l('Catalog URL').'</div>';
+				$output .= '<div class="col-lg-9">'.$this->l('http://tastehit/export').'</div>';
+			$output .= '</div>';
+
+			$output .= '<div class="form-group">';
+				$output .= '<div class="col-lg-3">'.$this->l('Buying history URL').'</div>';
+				$output .= '<div class="col-lg-9">'.$this->l('http://tastehit/export').'</div>';
+			$output .= '</div>';
+
+			$output .= '<div class="form-group">';
+				$output .= '<div class="col-lg-3">'.$this->l('Last catalog export').'</div>';
+				$output .= '<div class="col-lg-9">'.$this->l('November 27').'</div>';
+			$output .= '</div>';
+
+			$output .= '<div class="form-group">';
+				$output .= '<div class="col-lg-3">'.$this->l('Last cart history export').'</div>';
+				$output .= '<div class="col-lg-9">'.$this->l('November 27').'</div>';
+			$output .= '</div>';
+		$output .= '</div>';
+
+		return $output;
 	}
 
 	/**
 	 * Create the form that will be displayed in the configuration of your module.
 	 */
-	protected function renderForm()
+	public function displayForm()
 	{
-	    $options = $this->_generateCMS();
-        $fields_form = array(
-			'form' => array(
-				'legend' => array(
-					'title' => $this->l('Settings'),
-					'icon' => 'icon-cogs'
+		// Get default language
+		$default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
+
+		// Init Fields form array
+		$fields_form[0]['form'] = array(
+			'legend' => array(
+				'title' => $this->l('Configuration'),
+				'icon' => 'icon-cogs'
+			),
+			'input' => array(
+				array(
+					'type' => 'text',
+					'label' => $this->l('Customer ID'),
+					'name' => 'TH_COSTUMER_ID',
+					'size' => 20,
+					'required' => true
 				),
-				'input' => array(
-					array(
-						'type' => 'switch',
-						'label' => $this->l('Turn bargain'),
-						'name' => 'MAIN_STATE',
-						'values' => array(
-							array(
-								'id' => 'on',
-								'value' => 1,
-								'label' => $this->l('Enabled')
-							),
-							array(
-								'id' => 'off',
-								'value' => 0,
-								'label' => $this->l('Disabled')
-							),
+				array(
+					'type' => 'text',
+					'label' => $this->l('TasteHit URL'),
+					'name' => 'TH_URL',
+					'size' => 20,
+					'required' => true
+				),
+				array(
+					'type' => 'text',
+					'label' => $this->l('Public path to export'),
+					'name' => 'TH_EXPORTS_PATH',
+					'size' => 20,
+					'required' => true
+				),
+				array(
+					'type' => 'text',
+					'label' => $this->l('Exports frequency'),
+					'name' => 'TH_EXPORTS_FREQUENCY',
+					'size' => 20,
+					'required' => true
+				),
+				array(
+					'type' => 'switch',
+					'label' => $this->l('Dispaly on product pages'),
+					'name' => 'TH_DISPLAY_PRODUCT',
+					'values' => array(
+						array(
+							'id'    => 'on',
+							'value' => 1,
+							'label' => $this->l('Enabled')
 						),
-					),
-                    array(
-						'type' => 'switch',
-						'label' => $this->l('Quantity field'),
-						'name' => 'MAIN_QUANTITY_FIELDS',
-						'values' => array(
-							array(
-								'id' => 'on',
-								'value' => 1,
-								'label' => $this->l('Show')
-							),
-							array(
-								'id' => 'off',
-								'value' => 0,
-								'label' => $this->l('Hide')
-							),
-						),
-					),
-                    array(
-						'type' => 'switch',
-						'label' => $this->l('Animate product to fly to cart (else popup option)'),
-						'name' => 'MAIN_ANIMATE',
-						'values' => array(
-							array(
-								'id' => 'on',
-								'value' => 1,
-								'label' => $this->l('Yes')
-							),
-							array(
-								'id' => 'off',
-								'value' => 0,
-								'label' => $this->l('No')
-							),
-						),
-					),
-					array(
-						'type' => 'switch',
-						'label' => $this->l('Enable Guest checkout'),
-						'name' => 'PS_GUEST_QUOTES_ENABLED',
-						'values' => array(
-							array(
-								'id' => 'on',
-								'value' => 1,
-								'label' => $this->l('Yes')
-							),
-							array(
-								'id' => 'off',
-								'value' => 0,
-								'label' => $this->l('No')
-							),
-						)
-					),
-                    array(
-						'type' => 'switch',
-						'label' => $this->l('Required terms and conditions'),
-						'name' => 'MAIN_TERMS_AND_COND',
-						'values' => array(
-							array(
-								'id' => 'on',
-								'value' => 1,
-								'label' => $this->l('Yes')
-							),
-							array(
-								'id' => 'off',
-								'value' => 0,
-								'label' => $this->l('No')
-							),
-						)                        
-					),
-                    array(
-						'title' => $this->l('Please select CMS Page with Terms and Conditions'),
-                        'label' => $this->l('Select CMS Page with Terms and Rules'),
-						'type' => 'select',
-                        'id' => 'cms_page_select',
-                        'name' => 'MAIN_CMS_PAGE',
-                        'options' => array('query' => $options,'id' => 'id','name' => 'name'),
-                        'identifier' => 'id',
-					),
-					array(
-						'type' => 'switch',
-						'label' => $this->l('Delivery address option'),
-						'name' => 'ADDRESS_ENABLED',
-						'values' => array(
-							array(
-								'id' => 'on',
-								'value' => 1,
-								'label' => $this->l('Yes')
-							),
-							array(
-								'id' => 'off',
-								'value' => 0,
-								'label' => $this->l('No')
-							),
-						)
-					),
-					array(
-						'type' => 'switch',
-						'label' => $this->l('User messaging'),
-						'name' => 'MESSAGING_ENABLED',
-						'values' => array(
-							array(
-								'id' => 'on',
-								'value' => 1,
-								'label' => $this->l('Yes')
-							),
-							array(
-								'id' => 'off',
-								'value' => 0,
-								'label' => $this->l('No')
-							),
+						array(
+							'id'    => 'off',
+							'value' => 0,
+							'label' => $this->l('Disabled')
 						)
 					)
 				),
-                'bottom' => '<script type="text/javascript">showBlock(element);hideBlock(element);</script>',
-				'submit' => array(
-					'title' => $this->l('Save'),
+				array(
+					'type' => 'switch',
+					'label' => $this->l('Dispaly on category pages'),
+					'name' => 'TH_DISPLAY_CATEGORY',
+					'values' => array(
+						array(
+							'id'    => 'on',
+							'value' => 1,
+							'label' => $this->l('Enabled')
+						),
+						array(
+							'id' => 'off',
+							'value' => 0,
+							'label' => $this->l('Disabled')
+						)
+					)
 				)
 			),
+			'submit' => array(
+				'title' => $this->l('Save'),
+				'class' => 'button'
+			)
 		);
-		
-		$helper = new HelperForm();
-        $helper->show_toolbar = false;
-        $lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
-        $helper->default_form_language = $lang->id;
-        $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
-        $helper->identifier = $this->identifier;
-        $helper->submit_action = 'submitMainSettings';
-        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false).'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
-        $helper->token = Tools::getAdminTokenLite('AdminModules');
-        $helper->tpl_vars = array(
-            'fields_value' => $this->getConfigFormValues(),
-            'languages' => $this->context->controller->getLanguages(),
-            'id_language' => $this->context->language->id
-        );
 
-		return $helper->generateForm(array($fields_form));
+		$helper = new HelperForm();
+
+		// Module, token and currentIndex
+		$helper->module = $this;
+		$helper->name_controller = $this->name;
+		$helper->token = Tools::getAdminTokenLite('AdminModules');
+		$helper->currentIndex = AdminController::$currentIndex.'&configure='.$this->name;
+
+		// Language
+		$helper->default_form_language = $default_lang;
+		$helper->allow_employee_form_lang = $default_lang;
+
+		// Title and toolbar
+		$helper->title = $this->displayName;
+		$helper->show_toolbar = true;        // false -> remove toolbar
+		$helper->toolbar_scroll = true;      // yes - > Toolbar is always visible on the top of the screen.
+		$helper->submit_action = 'submit'.$this->name;
+		$helper->toolbar_btn = array(
+			'save' =>
+				array(
+					'desc' => $this->l('Save'),
+					'href' => AdminController::$currentIndex.'&configure='.$this->name.'&save'.$this->name.
+						'&token='.Tools::getAdminTokenLite('AdminModules'),
+				),
+			'back' => array(
+				'href' => AdminController::$currentIndex.'&token='.Tools::getAdminTokenLite('AdminModules'),
+				'desc' => $this->l('Back to list')
+			)
+		);
+
+		// Load current value
+		$helper->fields_value = $this->getConfigFormValues();
+
+		return $helper->generateForm($fields_form);
 	}
-    
+
 	/**
 	 * Set values for the inputs.
 	 */
 	protected function getConfigFormValues()
 	{
 		return array(
-			'MAIN_STATE' => Configuration::get('MAIN_STATE'),
-            'MAIN_QUANTITY_FIELDS' => Configuration::get('MAIN_QUANTITY_FIELDS'),
-            'MAIN_ANIMATE' => Configuration::get('MAIN_ANIMATE'),
-            //'MAIN_GUEST_CHECK_OUT' => Configuration::get('MAIN_GUEST_CHECK_OUT'),
-            'MAIN_TERMS_AND_COND' => Configuration::get('MAIN_TERMS_AND_COND'),
-            'MAIN_CMS_PAGE' => Configuration::get('MAIN_CMS_PAGE'),
-			'PS_GUEST_QUOTES_ENABLED' => Configuration::get('PS_GUEST_QUOTES_ENABLED'),
-			'ADDRESS_ENABLED' => Configuration::get('ADDRESS_ENABLED'),
-			'MESSAGING_ENABLED' => Configuration::get('MESSAGING_ENABLED')
+			'TH_COSTUMER_ID' => Configuration::get('TH_COSTUMER_ID'),
+			'TH_URL' => Configuration::get('TH_URL'),
+			'TH_EXPORTS_PATH' => Configuration::get('TH_EXPORTS_PATH'),
+			'TH_EXPORTS_FREQUENCY' => Configuration::get('TH_EXPORTS_FREQUENCY'),
+			'TH_DISPLAY_PRODUCT' => Configuration::get('TH_DISPLAY_PRODUCT'),
+			'TH_DISPLAY_CATEGORY' => Configuration::get('TH_DISPLAY_CATEGORY')
 		);
 	}
 
 	/**
-	* Add the CSS & JavaScript files you want to be loaded in the BO.
-	*/
+	 * Add the CSS & JavaScript files you want to be loaded in the BO.
+	 */
 	public function hookdisplayBackOfficeHeader()
 	{
 		$this->context->controller->addJS($this->_path.'js/back.js');
@@ -341,127 +294,6 @@ class Tastehit extends Module
 		$this->context->controller->addJS($this->_path.'/js/front.js');
 		$this->context->controller->addCSS($this->_path.'/css/front.css');
 	}
-
-	public function hookTop()
-	{
-		//load model
-		include_once(_PS_MODULE_DIR_.'quotes/classes/QuotesProduct.php');
-		$quote_obj = new QuotesProductCart;
-
-		$products = array();
-		// check for user cart session. Defined in QuotesCart if user add product to quote box
-		if ($this->context->cookie->__isset('request_id')) {
-			$quote_obj->id_quote = $this->context->cookie->__get('request_id');
-			list($products, $cart) = $quote_obj->getProducts();
-		}
-		$this->context->smarty->assign('session', $this->context->cookie->__get('request_id'));
-		$this->context->smarty->assign('actionAddQuotes',$this->context->link->getModuleLink($this->name, 'QuotesCart', array(), true));
-		$this->context->smarty->assign('products', $products);
-        $this->context->smarty->assign('cart', $cart);
-        $this->context->smarty->assign('active_overlay', 0);
-
-        $customer = (($this->context->cookie->logged) ? (int)$this->context->cookie->id_customer : 0);
-
-        $this->context->smarty->assign('isLogged', $customer);
-
-        $product_count = 0;
-        foreach($products as $key => $value)
-            if(is_numeric($key))
-                $product_count++;
-		$this->context->smarty->assign('cartTotalProducts', $product_count);
-		$this->context->smarty->assign('quotesCart',$this->context->link->getModuleLink($this->name, 'QuotesCart', array(), true));
-
-		if (Configuration::get('MAIN_STATE'))
-			return $this->display(__FILE__, 'quotesCart.tpl');
-	}
-
-    /**
-	 * Add ask to quote button to product
-	 */
-    public function hookextraRight()
-	{
-		$product = new Product(Tools::getValue('id_product'), (int)$this->context->language->id, true);
-
-		$customer = (($this->context->cookie->logged) ? (int)$this->context->cookie->id_customer : 0);
-
-		$this->context->smarty->assign('isLogged', $customer);
-        $this->context->smarty->assign('product', $product);
-        $this->context->smarty->assign('enableAnimation',Configuration::get('MAIN_ANIMATE'));
-
-        $linkCore = new Link;
-		$this->context->smarty->assign('plink', $linkCore->getProductLink($product->id, $product->link_rewrite, $product->id_category_default));
-
-		if (Configuration::get('MAIN_STATE'))
-			return $this->display(__FILE__, 'extraRight.tpl');
-	}
-	/**
-	 * Add ask to quote button to product
-	 */
-//	public function hookdisplayProductButtons()
-//	{
-//		$product = new Product(Tools::getValue('id_product'), (int)$this->context->language->id, true);
-//
-//		$customer = (($this->context->cookie->logged) ? (int)$this->context->cookie->id_customer : 0);
-//
-//		$this->context->smarty->assign('isLogged', $customer);
-//		$this->context->smarty->assign('product', $product);
-//		$this->context->smarty->assign('enableAnimation',Configuration::get('MAIN_ANIMATE'));
-//
-//		$linkCore = new Link;
-//		$this->context->smarty->assign('plink', $linkCore->getProductLink($product->id, $product->link_rewrite, $product->id_category_default));
-//
-//		if (Configuration::get('MAIN_STATE'))
-//			return $this->display(__FILE__, 'extraRight.tpl');
-//	}
-
-	/**
-	 * Add ask to quote button to product list
-	 */
-	public function hookdisplayProductListFunctionalButtons($params){
-		$customer = (($this->context->cookie->logged) ? (int)$this->context->cookie->id_customer : 0);
-		$this->context->smarty->assign('isLogged', $customer);
-		$this->context->smarty->assign('enableAnimation',Configuration::get('MAIN_ANIMATE'));
-		$this->smarty->assign('product', $params['product']);
-		if (Configuration::get('MAIN_STATE'))
-			return $this->display(__FILE__, 'product-list.tpl');
-	}
-
-	/**
-	 * Add quote link in my account
-	 */
-	public function hookCustomerAccount()
-	{
-        if (Configuration::get('MAIN_STATE'))
-		    return $this->display(__FILE__, 'my-account.tpl');
-	}
-	/**
-	 * Add quote link in my account footer
-	 */
-	public function hookdisplayMyAccountBlockfooter()
-	{
-		if (Configuration::get('MAIN_STATE'))
-			return $this->display(__FILE__, 'blockMyaccountFooter.tpl');
-	}
-
-    /**
-	 * Add ask to quote button to product list
-	 */
-    private function _generateCMS() {
-        $pages = CMS::getCMSPages((int)$this->context->language->id, null, true);
-        $out = array();
-        if(!empty($pages)) {
-            foreach($pages as $page) {
-                $out[] = array(
-                    'id'    => $page['id_cms'],
-                    'value' => $page['id_cms'],
-                    'name'  => $page['meta_title']
-                );
-            }
-        }
-        else
-            $out[] = array('name' => $this->l('No cms pages found'));
-        return $out;    
-    }
 
 
 }
