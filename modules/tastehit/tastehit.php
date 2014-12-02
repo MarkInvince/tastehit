@@ -77,6 +77,14 @@ class Tastehit extends Module
 
 	public function getContent()
 	{
+		/* Begin export if exportNow button pressed */
+		if(Tools::getValue('action') == 'exportNow') {
+
+			die(Tools::jsonEncode(array(
+				'ajax' => 'ok'
+			)));
+		}
+
 		$output = '<div id="th_wrapper" class="th_wrapper">';
 		$output .= '<div class="module_logo"><a href="https://www.tastehit.com/login" title="tastehit.com" target="_blank"><img src="'.$this->_path.'img/module-logo.png" alt="'.$this->l('Tastehit').'"/></a></div>';
 		
@@ -198,28 +206,28 @@ class Tastehit extends Module
 				'icon' => 'icon-cogs'
 			),
 			'input' => array(
-				array(
+				array( // Customer ID
 					'type' => 'text',
 					'label' => $this->l('Customer ID'),
 					'name' => 'TH_COSTUMER_ID',
 					'size' => 20,
 					'required' => true
 				),
-				array(
+				array( // TasteHit URL
 					'type' => 'text',
 					'label' => $this->l('TasteHit URL'),
 					'name' => 'TH_URL',
 					'size' => 20,
 					'required' => true
 				),
-				array(
+				array( // Public path to export
 					'type' => 'text',
 					'label' => $this->l('Public path to export'),
 					'name' => 'TH_EXPORTS_PATH',
 					'size' => 20,
 					'required' => true
 				),
-				array(
+				array( // Exports frequency
 					'type' => 'select',
 					'label' => $this->l('Exports frequency'),
 					'name' => 'TH_EXPORTS_FREQUENCY',
@@ -230,7 +238,12 @@ class Tastehit extends Module
 						'name' => 'name'
 					)
 				),
-				array(
+				array( // Export now button
+					'type' => 'export_button',
+					'name' => 'Button',
+					'required' => true,
+				),
+				array( // Dispaly on home page
 					'type' => 'switch',
 					'label' => $this->l('Dispaly on home page'),
 					'name' => 'TH_DISPLAY_HOME',
