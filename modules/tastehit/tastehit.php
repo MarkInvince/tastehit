@@ -2,6 +2,8 @@
 if (!defined('_PS_VERSION_'))
 	exit;
 
+require (dirname(__FILE__).'/classes/export.class.php');
+
 class Tastehit extends Module
 {
 	protected $config_form = false;
@@ -41,8 +43,9 @@ class Tastehit extends Module
 			!Configuration::updateValue('TH_MODULE_NAME', 'tastehit') ||
 			!Configuration::updateValue('TH_COSTUMER_ID', 'customer id') ||
 			!Configuration::updateValue('TH_URL', 'https://www.tastehit.com') ||
-			!Configuration::updateValue('TH_EXPORTS_PATH', '0') ||
-			!Configuration::updateValue('TH_EXPORTS_FREQUENCY', '0') ||
+			!Configuration::updateValue('TH_EXPORTS_PATH', _PS_MODULE_DIR_.$this->name.'/export/') ||
+			!Configuration::updateValue('TH_EXPORTS_FREQUENCY', '1') ||
+			!Configuration::updateValue('TH_DISPLAY_HOME', '1') ||
 			!Configuration::updateValue('TH_DISPLAY_PRODUCT', '1') ||
 			!Configuration::updateValue('TH_DISPLAY_CATEGORY', '1') ||
 			!Configuration::updateValue('TH_PRODUCT_POSITION', '1') ||
@@ -61,6 +64,7 @@ class Tastehit extends Module
 			!Configuration::deleteByName('TH_URL') ||
 			!Configuration::deleteByName('TH_EXPORTS_PATH') ||
 			!Configuration::deleteByName('TH_EXPORTS_FREQUENCY') ||
+			!Configuration::deleteByName('TH_DISPLAY_HOME') ||
 			!Configuration::deleteByName('TH_DISPLAY_PRODUCT') ||
 			!Configuration::deleteByName('TH_DISPLAY_CATEGORY') ||
 			!Configuration::deleteByName('TH_PRODUCT_POSITION') ||
@@ -74,20 +78,33 @@ class Tastehit extends Module
 	public function getContent()
 	{
 		$output = '<div id="th_wrapper" class="th_wrapper">';
-		$output .= '<div class="module_logo"><img src="'.$this->_path.'img/module-logo.png" alt="'.$this->l('Tastehit').'"/></div>';
-
+		$output .= '<div class="module_logo"><a href="https://www.tastehit.com/login" title="tastehit.com" target="_blank"><img src="'.$this->_path.'img/module-logo.png" alt="'.$this->l('Tastehit').'"/></a></div>';
+		
 		if (Tools::isSubmit('submit'.$this->name))
 		{
-			$my_module_name = strval(Tools::getValue('TH_MODULE_NAME'));
-			if (!$my_module_name
-				|| empty($my_module_name)
-				|| !Validate::isGenericName($my_module_name))
-				$output .= $this->displayError($this->l('Invalid Configuration value'));
-			else
-			{
-				Configuration::updateValue('TH_MODULE_NAME', $my_module_name);
+			$submitErrors = '';
+
+			if (!Tools::getValue('TH_COSTUMER_ID'))
+				$submitErrors .= $this->displayError($this->l('Invalid customer ID'));
+
+			if (!Validate::isAbsoluteUrl(Tools::getValue('TH_URL')))
+				$submitErrors .= $this->displayError($this->l('TasteHit URL is not correct'));
+
+			if (!Tools::getValue('TH_EXPORTS_PATH'))
+				$submitErrors .= $this->displayError($this->l('Public path to export is not correct'));
+
+			if ($submitErrors == '') {
+				Configuration::updateValue('TH_COSTUMER_ID', pSQL(Tools::getValue('TH_COSTUMER_ID')));
+				Configuration::updateValue('TH_URL', pSQL(Tools::getValue('TH_URL')));
+				Configuration::updateValue('TH_EXPORTS_PATH', pSQL(Tools::getValue('TH_EXPORTS_PATH')));
+				Configuration::updateValue('TH_EXPORTS_FREQUENCY', Tools::getValue('TH_EXPORTS_FREQUENCY'));
+				Configuration::updateValue('TH_DISPLAY_HOME', Tools::getValue('TH_DISPLAY_HOME'));
+				Configuration::updateValue('TH_DISPLAY_PRODUCT', Tools::getValue('TH_DISPLAY_PRODUCT'));
+				Configuration::updateValue('TH_DISPLAY_CATEGORY', Tools::getValue('TH_DISPLAY_CATEGORY'));
+				Configuration::updateValue('TH_CATEGORY_POSITION', Tools::getValue('TH_CATEGORY_POSITION'));
 				$output .= $this->displayConfirmation($this->l('Settings updated'));
-			}
+			} else
+				$output .= $submitErrors;
 		}
 
 		$output .= $this->currentStatus();
@@ -150,6 +167,30 @@ class Tastehit extends Module
 		// Get default language
 		$default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
 
+		// Frequency options
+		$options = array(
+			array(
+				'id_option' => 1,
+				'name' => $this->l('every day')
+			),
+			array(
+				'id_option' => 2,
+				'name' => $this->l('every 2 days')
+			),
+			array(
+				'id_option' => 3,
+				'name' => $this->l('every 3 days')
+			),
+			array(
+				'id_option' => 4,
+				'name' => $this->l('every week')
+			),
+			array(
+				'id_option' => 5,
+				'name' => $this->l('every month')
+			),
+		);
+
 		// Init Fields form array
 		$fields_form[0]['form'] = array(
 			'legend' => array(
@@ -179,11 +220,32 @@ class Tastehit extends Module
 					'required' => true
 				),
 				array(
-					'type' => 'text',
+					'type' => 'select',
 					'label' => $this->l('Exports frequency'),
 					'name' => 'TH_EXPORTS_FREQUENCY',
-					'size' => 20,
-					'required' => true
+					'required' => true,
+					'options' => array(
+						'query' => $options,
+						'id' => 'id_option',
+						'name' => 'name'
+					)
+				),
+				array(
+					'type' => 'switch',
+					'label' => $this->l('Dispaly on home page'),
+					'name' => 'TH_DISPLAY_HOME',
+					'values' => array(
+						array(
+							'id'    => 'on',
+							'value' => 1,
+							'label' => $this->l('Enabled')
+						),
+						array(
+							'id'    => 'off',
+							'value' => 0,
+							'label' => $this->l('Disabled')
+						)
+					)
 				),
 				array(
 					'type' => 'switch',
@@ -202,9 +264,9 @@ class Tastehit extends Module
 						)
 					)
 				),
-				array(
+				array( // Display on category pages
 					'type' => 'switch',
-					'label' => $this->l('Dispaly on category pages'),
+					'label' => $this->l('Display on category pages'),
 					'name' => 'TH_DISPLAY_CATEGORY',
 					'values' => array(
 						array(
@@ -218,7 +280,25 @@ class Tastehit extends Module
 							'label' => $this->l('Disabled')
 						)
 					)
-				)
+				),
+				array( // Position on category pages
+					'type'      => 'radio',
+					'label'     => $this->l('Position on category pages'),
+					'name'      => 'TH_CATEGORY_POSITION',
+					'required'  => true,
+					'values'    => array(
+						array(
+							'id'    => 'Left column',
+							'value' => 1,
+							'label' => $this->l('Left column')
+						),
+						array(
+							'id'    => 'Right column',
+							'value' => 0,
+							'label' => $this->l('Right column')
+						)
+					),
+				),
 			),
 			'submit' => array(
 				'title' => $this->l('Save'),
@@ -272,8 +352,10 @@ class Tastehit extends Module
 			'TH_URL' => Configuration::get('TH_URL'),
 			'TH_EXPORTS_PATH' => Configuration::get('TH_EXPORTS_PATH'),
 			'TH_EXPORTS_FREQUENCY' => Configuration::get('TH_EXPORTS_FREQUENCY'),
+			'TH_DISPLAY_HOME' => Configuration::get('TH_DISPLAY_HOME'),
 			'TH_DISPLAY_PRODUCT' => Configuration::get('TH_DISPLAY_PRODUCT'),
-			'TH_DISPLAY_CATEGORY' => Configuration::get('TH_DISPLAY_CATEGORY')
+			'TH_DISPLAY_CATEGORY' => Configuration::get('TH_DISPLAY_CATEGORY'),
+			'TH_CATEGORY_POSITION' => Configuration::get('TH_CATEGORY_POSITION'),
 		);
 	}
 
