@@ -35,11 +35,13 @@ class Tastehit extends Module
 			Shop::setContext(Shop::CONTEXT_ALL);
 
 		if (!parent::install() ||
-			!$this->registerHook('leftColumn') ||
-			!$this->registerHook('rightColumn') ||
+			!$this->registerHook('displayLeftColumn') ||
+			!$this->registerHook('displayRightColumn') ||
 			!$this->registerHook('displayFooterProduct') ||
-			!$this->registerHook('header') ||
+			!$this->registerHook('displayHeader') ||
 			!$this->registerHook('displayBackOfficeHeader') ||
+			!$this->registerHook('displayFooter') ||
+			!$this->registerHook('displayHome') ||
 			!Configuration::updateValue('TH_MODULE_NAME', 'tastehit') ||
 			!Configuration::updateValue('TH_COSTUMER_ID', 'customer id') ||
 			!Configuration::updateValue('TH_URL', 'https://www.tastehit.com') ||
@@ -77,12 +79,19 @@ class Tastehit extends Module
 
 	public function getContent()
 	{
+//		$this->exportProducts();
+//		$this->exportBuyingHistory();
+
 		/* Begin export if exportNow button pressed */
 		if(Tools::getValue('action') == 'exportNow') {
-
-			die(Tools::jsonEncode(array(
-				'ajax' => 'ok'
-			)));
+			if ($this->exportProducts() && $this->exportBuyingHistory()){
+				die(Tools::jsonEncode(array(
+					'ajax' => 'ok'
+				)));
+			}else
+				die(Tools::jsonEncode(array(
+					'ajax' => 'not_ok'
+				)));
 		}
 
 		$output = '<div id="th_wrapper" class="th_wrapper">';
@@ -373,6 +382,54 @@ class Tastehit extends Module
 	}
 
 	/**
+	 * Export products to catalog.csv.
+	 */
+	protected function exportProducts() {
+		$file = _PS_MODULE_DIR_.$this->name.'/export/catalog.csv';
+		$productsIds = Export::getProducts();
+
+		$csv = 'id;Name;Reference;Category;Description'.PHP_EOL;
+
+		foreach ($productsIds as $productId){
+			$product = new Product($productId['id_product'], true, intval(Configuration::get('PS_LANG_DEFAULT')));
+
+			$name = Export::clearDescription($product->name);
+
+			$description = Export::clearDescription($product->description_short);
+
+			$csv .= $product->id.';'.$name.';'.$product->reference.';'.$product->id_category_default.';'.$description.PHP_EOL;
+
+//			echo '<pre>';
+//			print_r($product);
+//			echo '</pre>';
+		}
+
+		if(file_put_contents($file, $csv))
+			return true;
+		return false;
+	}
+
+	/**
+	 * Export buying history to history.csv.
+	 */
+	protected function exportBuyingHistory() {
+
+		$file = _PS_MODULE_DIR_.$this->name.'/export/history.csv';
+		$buying_history = Export::getBuyingHistory();
+
+		$csv = 'id_user;product_id'.PHP_EOL;
+
+		foreach ($buying_history as $history){
+			$csv .= $history['id_customer'].';'.$history['product_id'].PHP_EOL;
+		}
+
+		if(file_put_contents($file, $csv))
+			return true;
+		return false;
+	}
+
+
+	/**
 	 * Add the CSS & JavaScript files you want to be loaded in the BO.
 	 */
 	public function hookdisplayBackOfficeHeader()
@@ -384,11 +441,54 @@ class Tastehit extends Module
 	/**
 	 * Add the CSS & JavaScript files you want to be added on the FO.
 	 */
-	public function hookHeader()
+	public function hookdisplayHeader()
 	{
 		$this->context->controller->addJS($this->_path.'/js/front.js');
 		$this->context->controller->addCSS($this->_path.'/css/front.css');
 	}
 
+	/**
+	 * Add tastehit API javascript in the bottom of the pages (footer).
+	 */
+	public function hookdisplayFooter()
+	{
+		$this->context->controller->addJS($this->_path.'front.js');
+
+		$this->smarty->assign(array(
+			'th_customer_id' => Configuration::get('TH_COSTUMER_ID'),
+			'th_url' => Configuration::get('TH_URL'),
+		));
+
+		return $this->display(__FILE__, 'th_main_js.tpl');
+	}
+
+
+
+	public function hookdisplayRightColumn($params)
+	{
+		$this->smarty->assign(array(
+			'th_display_home' => Configuration::get('TH_DISPLAY_HOME'),
+			'th_display_category' => Configuration::get('TH_DISPLAY_CATEGORY'),
+			'th_display_product' => Configuration::get('TH_DISPLAY_PRODUCT'),
+			'position_category' => Configuration::get('TH_CATEGORY_POSITION')
+		));
+
+		return $this->display(__FILE__, 'tastehit_products.tpl');
+	}
+
+	public function hookdisplayLeftColumn($params)
+	{
+		return $this->hookdisplayRightColumn($params);
+	}
+
+	public function hookdisplayHome($params)
+	{
+		return $this->hookdisplayRightColumn($params);
+	}
+
+	public function hookdisplayFooterProduct($params)
+	{
+		return $this->hookdisplayRightColumn($params);
+	}
 
 }
