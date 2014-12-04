@@ -22,6 +22,7 @@
 
 {block name="script"}
     $(document).ready(function(){
+
         $('#export_button').click(function(e){
             e.preventDefault();
             $.ajax({
@@ -29,7 +30,6 @@
                 data: 'action=exportNow',
                 dataType:'json',
                 success: function(data) {
-                    console.log(data);
                     if(data.ajax == 'ok')
                         $('.export_views .alert-success').fadeIn(500);
                     else

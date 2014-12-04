@@ -46,12 +46,13 @@ class Tastehit extends Module
 			!Configuration::updateValue('TH_COSTUMER_ID', 'customer id') ||
 			!Configuration::updateValue('TH_URL', 'https://www.tastehit.com') ||
 			!Configuration::updateValue('TH_EXPORTS_PATH', _PS_MODULE_DIR_.$this->name.'/export/') ||
-			!Configuration::updateValue('TH_EXPORTS_FREQUENCY', '1') ||
+			!Configuration::updateValue('TH_EXPORTS_FREQUENCY', '0') ||
 			!Configuration::updateValue('TH_DISPLAY_HOME', '1') ||
 			!Configuration::updateValue('TH_DISPLAY_PRODUCT', '1') ||
 			!Configuration::updateValue('TH_DISPLAY_CATEGORY', '1') ||
 			!Configuration::updateValue('TH_PRODUCT_POSITION', '1') ||
-			!Configuration::updateValue('TH_CATEGORY_POSITION', '1')
+			!Configuration::updateValue('TH_CATEGORY_POSITION', '1') ||
+			!Configuration::updateValue('TH_EXPORT_TIME', time())
 		)
 			return false;
 
@@ -70,7 +71,8 @@ class Tastehit extends Module
 			!Configuration::deleteByName('TH_DISPLAY_PRODUCT') ||
 			!Configuration::deleteByName('TH_DISPLAY_CATEGORY') ||
 			!Configuration::deleteByName('TH_PRODUCT_POSITION') ||
-			!Configuration::deleteByName('TH_CATEGORY_POSITION')
+			!Configuration::deleteByName('TH_CATEGORY_POSITION') ||
+			!Configuration::deleteByName('TH_EXPORT_TIME')
 		)
 			return false;
 
@@ -79,12 +81,13 @@ class Tastehit extends Module
 
 	public function getContent()
 	{
-//		$this->exportProducts();
+		//$this->exportProducts();
 //		$this->exportBuyingHistory();
 
 		/* Begin export if exportNow button pressed */
 		if(Tools::getValue('action') == 'exportNow') {
 			if ($this->exportProducts() && $this->exportBuyingHistory()){
+				Configuration::updateValue('TH_EXPORT_TIME', time());
 				die(Tools::jsonEncode(array(
 					'ajax' => 'ok'
 				)));
@@ -113,13 +116,13 @@ class Tastehit extends Module
 			if ($submitErrors == '') {
 				Configuration::updateValue('TH_COSTUMER_ID', pSQL(Tools::getValue('TH_COSTUMER_ID')));
 				Configuration::updateValue('TH_URL', pSQL(Tools::getValue('TH_URL')));
-				Configuration::updateValue('TH_EXPORTS_PATH', pSQL(Tools::getValue('TH_EXPORTS_PATH')));
+				Configuration::updateValue('TH_EXPORTS_PATH', pSQL(strval(Tools::getValue('TH_EXPORTS_PATH'))));
 				Configuration::updateValue('TH_EXPORTS_FREQUENCY', Tools::getValue('TH_EXPORTS_FREQUENCY'));
 				Configuration::updateValue('TH_DISPLAY_HOME', Tools::getValue('TH_DISPLAY_HOME'));
 				Configuration::updateValue('TH_DISPLAY_PRODUCT', Tools::getValue('TH_DISPLAY_PRODUCT'));
 				Configuration::updateValue('TH_DISPLAY_CATEGORY', Tools::getValue('TH_DISPLAY_CATEGORY'));
 				Configuration::updateValue('TH_CATEGORY_POSITION', Tools::getValue('TH_CATEGORY_POSITION'));
-				$output .= $this->displayConfirmation($this->l('Settings updated'));
+				$output .= $this->displayConfirmation($this->l('Your configuration has been saved'));
 			} else
 				$output .= $submitErrors;
 		}
@@ -139,6 +142,9 @@ class Tastehit extends Module
 		$status = 'offline';
 		$status = 'online';
 
+		$export_time = Configuration::get('TH_EXPORT_TIME');
+		$export_time = date('Y-m-d h:i:sa', $export_time);
+
 		$output = '<div class="panel current_status">';
 			$output .= '<div class="panel-heading">'.$this->l('Current status').'</div>';
 
@@ -154,22 +160,22 @@ class Tastehit extends Module
 
 			$output .= '<div class="form-group">';
 				$output .= '<div class="col-lg-3">'.$this->l('Catalog URL').'</div>';
-				$output .= '<div class="col-lg-9">'.$this->l('http://tastehit/export').'</div>';
+				$output .= '<div class="col-lg-9">'.Configuration::get('TH_EXPORTS_PATH').'</div>';
 			$output .= '</div>';
 
 			$output .= '<div class="form-group">';
 				$output .= '<div class="col-lg-3">'.$this->l('Buying history URL').'</div>';
-				$output .= '<div class="col-lg-9">'.$this->l('http://tastehit/export').'</div>';
+				$output .= '<div class="col-lg-9">'.Configuration::get('TH_EXPORTS_PATH').'</div>';
 			$output .= '</div>';
 
 			$output .= '<div class="form-group">';
 				$output .= '<div class="col-lg-3">'.$this->l('Last catalog export').'</div>';
-				$output .= '<div class="col-lg-9">'.$this->l('November 27').'</div>';
+				$output .= '<div class="col-lg-9">'.$export_time.'</div>';
 			$output .= '</div>';
 
 			$output .= '<div class="form-group">';
 				$output .= '<div class="col-lg-3">'.$this->l('Last cart history export').'</div>';
-				$output .= '<div class="col-lg-9">'.$this->l('November 27').'</div>';
+				$output .= '<div class="col-lg-9">'.$export_time.'</div>';
 			$output .= '</div>';
 		$output .= '</div>';
 
@@ -186,6 +192,10 @@ class Tastehit extends Module
 
 		// Frequency options
 		$options = array(
+			array(
+				'id_option' => 0,
+				'name' => $this->l('---Chose frequency---')
+			),
 			array(
 				'id_option' => 1,
 				'name' => $this->l('every day')
@@ -256,6 +266,7 @@ class Tastehit extends Module
 					'type' => 'switch',
 					'label' => $this->l('Dispaly on home page'),
 					'name' => 'TH_DISPLAY_HOME',
+					'desc' => 'Will display at the center of the homepage.',
 					'values' => array(
 						array(
 							'id'    => 'on',
@@ -273,6 +284,7 @@ class Tastehit extends Module
 					'type' => 'switch',
 					'label' => $this->l('Dispaly on product pages'),
 					'name' => 'TH_DISPLAY_PRODUCT',
+					'desc' => 'Will display under the product description.',
 					'values' => array(
 						array(
 							'id'    => 'on',
@@ -388,7 +400,12 @@ class Tastehit extends Module
 		$file = _PS_MODULE_DIR_.$this->name.'/export/catalog.csv';
 		$productsIds = Export::getProducts();
 
-		$csv = 'id;Name;Reference;Category;Description'.PHP_EOL;
+		global $link;
+		$link = new Link();
+
+		$id_lang = Configuration::get('PS_LANG_DEFAULT');
+
+		$csv = 'id;Name;Reference;Category;Description;Quantity;ProductUrl;ImageUrl;Price;SalePrice;ProductFeatures;ProductCombinations;AvailableNow;AvailableForOrder'.PHP_EOL;
 
 		foreach ($productsIds as $productId){
 			$product = new Product($productId['id_product'], true, intval(Configuration::get('PS_LANG_DEFAULT')));
@@ -397,10 +414,43 @@ class Tastehit extends Module
 
 			$description = Export::clearDescription($product->description_short);
 
-			$csv .= $product->id.';'.$name.';'.$product->reference.';'.$product->id_category_default.';'.$description.PHP_EOL;
+			$cover = $product->getCover($product->id)['id_image'];
+
+			// Product features
+			$features = $product->getFrontFeatures($id_lang);
+			$product_features = '';
+			foreach ($features as $feature) {
+				$product_features .= $feature["name"].' - '.$feature["value"].',';
+			}
+			if($product_features)
+				$product_features = substr($product_features, 0, -1);
+
+			// Product combinaisons
+			$combinaisons = $product->getAttributeCombinaisons($id_lang);
+			$product_combinations = '';
+			foreach ($combinaisons as $combinaison) {
+				$product_combinations .= $combinaison["group_name"].' - '.$combinaison["attribute_name"].',';
+			}
+			if($product_combinations)
+				$product_combinations = substr($product_combinations, 0, -1);
+
+			$csv .= $product->id.';'.$name.';'
+					.$product->reference.';'
+					.$product->category.';'
+					.$description.';'
+					.$product->quantity.';'
+					.$link->getProductLink($product->id, $product->link_rewrite, $product->id_category_default, $product->ean13).';'
+					.$link->getImageLink($product->link_rewrite, $cover).';'
+					.$product->price.';'
+					.Product::getPriceStatic($product->id, true, NULL, 6).';'
+					.$product_features.';'
+					.$product_combinations.';'
+					.$product->available_now.';'
+					.$product->available_for_order
+					.PHP_EOL;
 
 //			echo '<pre>';
-//			print_r($product);
+//				print_r($product);
 //			echo '</pre>';
 		}
 
@@ -466,11 +516,45 @@ class Tastehit extends Module
 
 	public function hookdisplayRightColumn($params)
 	{
+		switch (Configuration::get('TH_EXPORTS_FREQUENCY')) {
+			case 0:
+				$frequency = 0;
+				break;
+			case 1:
+				$frequency = 24;
+				break;
+			case 2:
+				$frequency = 2 * 24 * 60 * 60;
+				break;
+			case 3:
+				$frequency = 3 * 24 * 60 * 60;
+				break;
+			case 4:
+				$frequency = 7 * 24 * 60 * 60;
+				break;
+			case 5:
+				$frequency = 4 * 7 * 24 * 60 * 60;
+				break;
+			default:
+				$frequency = 0;
+		}
+
+		if ($frequency) {
+			$last_export = Configuration::get('TH_EXPORT_TIME');
+			if((time() - $last_export) >= $frequency){
+				Configuration::updateValue('TH_EXPORT_TIME', time());
+				if (!($this->exportProducts() && $this->exportBuyingHistory()))
+					Configuration::updateValue('TH_EXPORT_TIME', $last_export);
+			}
+		}
+
+
 		$this->smarty->assign(array(
 			'th_display_home' => Configuration::get('TH_DISPLAY_HOME'),
 			'th_display_category' => Configuration::get('TH_DISPLAY_CATEGORY'),
 			'th_display_product' => Configuration::get('TH_DISPLAY_PRODUCT'),
-			'position_category' => Configuration::get('TH_CATEGORY_POSITION')
+			'position_category' => Configuration::get('TH_CATEGORY_POSITION'),
+			'frequency' => $frequency
 		));
 
 		return $this->display(__FILE__, 'tastehit_products.tpl');

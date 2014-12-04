@@ -23,4 +23,26 @@ class Export
         $description=str_replace(array('&nbsp;','&','"','>','<','`'), array(' ', '&amp;', '&quot;', '&gt;', '&lt;', '&apos;'),$description);
         return $description;
     }
+
+    public static function getCover($id_product, $id_product_attribute=false) {
+        if($id_product_attribute){
+            $sql = 'SELECT `id_image`
+                    FROM `'._DB_PREFIX_.'product_attribute_image`
+                    WHERE `id_product_attribute` = '.intval($id_product_attribute);
+            $result = Db::getInstance()->getValue($sql);
+        }
+        else
+            $result = false;
+
+        if (!$result){
+            $sql = 'SELECT `id_image`
+                    FROM `'._DB_PREFIX_.'image`
+                    WHERE `id_product` = '.intval($id_product).'
+                    AND `cover` = 1';
+            if (!$result = Db::getInstance()->getValue($sql))
+                return false;
+        }
+
+        return $id_product.'-'.$result;
+    }
 }
